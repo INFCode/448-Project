@@ -81,6 +81,16 @@ class Autoencoder(nn.Module):
         self.query_mapping = nn.Linear(hidden_size, attention_size)
 
     def forward(self, x, s_encode, s_decode):
+        """
+        x is the input of shape (batch_size, sentence_length), where x[i][j] is the j-th word's
+        id in the i-th sentnece in the batch
+        s_encode and s_decode are currently not used. Just set s_encode to be (batch_size, 1) of zeros
+        and s_decode to be (batch_size,1) of ones would be fine
+
+        output is of shape (batch_size, out_sentence_length, vocab_size), where output[i][j][k] is the
+        possibility of using the word whose id is k at position j in the i-th sentence of the batch.
+        """
+
         encoder_outputs, hidden = self.encoder(x, s_encode)  # (N, L, H)
         # print(f"{encoder_outputs.size()=}")
         keys = self.key_mapping(encoder_outputs)
