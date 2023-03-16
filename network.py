@@ -114,9 +114,12 @@ if __name__ == "__main__":
     filename = 'sample_data.tsv'
     dataset, w2id, id2w, vocab = generate_dataset(filename)
     train_loader, val_loader, test_loader = split_dataset(dataset)
-    
+
+
+    max_out_length = 100
+
     vocab_size = len(w2id)
-    net = Autoencoder(vocab_size, 32, 32, 4, 1, 8, 4)
+    net = Autoencoder(vocab_size, 32, 32, 4, 1, 8, max_out_length)
 
     # Define the loss function with Classification Cross-Entropy loss and an optimizer with Adam optimizer
     loss_fn = nn.CrossEntropyLoss()
@@ -133,22 +136,22 @@ if __name__ == "__main__":
         result = net.forward(X, s_in, s_out)
         outputs = result
         # transfer labels into distribution vectors
-        # print(X.shape,label.shape)
-        # y = torch.zeros(result.shape) 
-        # print(y.shape)
-        # for i, sentence in enumerate(label):
-        #     sentence_length = sentence.shape
-        #     for j,index in enumerate(sentence):
-        #         print(i,j,index)
+        print(X.shape,label.shape)
+        y = torch.zeros(result.shape) 
+        print(y.shape)
+        for i, sentence in enumerate(label):
+            sentence_length = sentence.shape
+            for j,index in enumerate(sentence):
+                print(i,j,index)
                 
-        #         y[i][j][index] = 1
-        # print(outputs.shape, y.shape)
-        # # compute the loss based on model output and real labels
-        # loss = loss_fn(outputs, y)
-        # # backpropagate the loss
-        # loss.backward()
-        # # adjust parameters based on the calculated gradients
-        # optimizer.step()
+                y[i][j][index] = 1
+        print(outputs.shape, y.shape)
+        # compute the loss based on model output and real labels
+        loss = loss_fn(outputs, y)
+        # backpropagate the loss
+        loss.backward()
+        # adjust parameters based on the calculated gradients
+        optimizer.step()
 
     
     # net = Autoencoder(3, 4, 4, 2, 1, 2, 4)
