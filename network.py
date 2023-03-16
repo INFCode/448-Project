@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from process_dataset import *
+from torch.optim import Adam
 
 class Encoder(nn.Module):
     def __init__(self, vocab_size, embed_size, hidden_size, num_layers, label_size):
@@ -108,27 +109,48 @@ class Autoencoder(nn.Module):
         outputs = torch.cat(outputs, dim=1)
         return outputs
 
+
 if __name__ == "__main__":
     filename = 'sample_data.tsv'
     dataset, w2id, id2w, vocab = generate_dataset(filename)
     train_loader, val_loader, test_loader = split_dataset(dataset)
-    X, Y = train_loader
-    # print(X)
-    # print(len(X))
-    # print(y)
-    vocab_size = len(vocab)
-    print(vocab_size)
-    for x,y in X,Y:
-        batch_size = x.shape[0]
-        label_size = y.shape[0]
-        print(batch_size)
-        print(x.shape)
-        # x = torch.tensor([[1, 2, 0, 2, 1], [1, 0, 0, 0, 1]])
-        # batch_size = x.shape[0]
-        net = Autoencoder(vocab_size, 4, 4, 2, 1, 2, 4)
+    
+    vocab_size = len(w2id)
+    net = Autoencoder(vocab_size, 32, 32, 4, 1, 8, 4)
+
+    # Define the loss function with Classification Cross-Entropy loss and an optimizer with Adam optimizer
+    loss_fn = nn.CrossEntropyLoss()
+    optimizer = Adam(net.parameters(), lr=0.001, weight_decay=0.0001)
+    for i, (X,label) in enumerate(train_loader):
+        running_loss = 0.0
+        running_acc = 0.0
+        batch_size = X.shape[0]
+        # zero the parameter gradients
+        optimizer.zero_grad()
+        # predict classes using images from the training set
         s_in = torch.zeros([batch_size,1])
         s_out = torch.ones([batch_size,1])
-        result = net.forward(x, s_in, s_out)
+        result = net.forward(X, s_in, s_out)
+        outputs = result
+        # transfer labels into distribution vectors
+        # print(X.shape,label.shape)
+        # y = torch.zeros(result.shape) 
+        # print(y.shape)
+        # for i, sentence in enumerate(label):
+        #     sentence_length = sentence.shape
+        #     for j,index in enumerate(sentence):
+        #         print(i,j,index)
+                
+        #         y[i][j][index] = 1
+        # print(outputs.shape, y.shape)
+        # # compute the loss based on model output and real labels
+        # loss = loss_fn(outputs, y)
+        # # backpropagate the loss
+        # loss.backward()
+        # # adjust parameters based on the calculated gradients
+        # optimizer.step()
+
+    
     # net = Autoencoder(3, 4, 4, 2, 1, 2, 4)
     # x = torch.tensor([[1, 2, 0, 2, 1], [1, 0, 0, 0, 1]])
     # s_in = torch.tensor([[0], [1]])
