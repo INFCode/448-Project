@@ -1,9 +1,8 @@
-import re
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from process_dataset import *
 
 class Encoder(nn.Module):
     def __init__(self, vocab_size, embed_size, hidden_size, num_layers, label_size):
@@ -109,11 +108,30 @@ class Autoencoder(nn.Module):
         outputs = torch.cat(outputs, dim=1)
         return outputs
 
-
 if __name__ == "__main__":
-    net = Autoencoder(3, 4, 4, 2, 1, 2, 4)
-    x = torch.tensor([[1, 2, 0, 2, 1], [1, 0, 0, 0, 1]])
-    s_in = torch.tensor([[0], [1]])
-    s_out = torch.tensor([[0], [1]])
-    result = net.forward(x, s_in, s_out)
+    filename = 'sample_data.tsv'
+    dataset, w2id, id2w, vocab = generate_dataset(filename)
+    train_loader, val_loader, test_loader = split_dataset(dataset)
+    X, Y = train_loader
+    # print(X)
+    # print(len(X))
+    # print(y)
+    vocab_size = len(vocab)
+    print(vocab_size)
+    for x,y in X,Y:
+        batch_size = x.shape[0]
+        label_size = y.shape[0]
+        print(batch_size)
+        print(x.shape)
+        # x = torch.tensor([[1, 2, 0, 2, 1], [1, 0, 0, 0, 1]])
+        # batch_size = x.shape[0]
+        net = Autoencoder(vocab_size, 4, 4, 2, 1, 2, 4)
+        s_in = torch.zeros([batch_size,1])
+        s_out = torch.ones([batch_size,1])
+        result = net.forward(x, s_in, s_out)
+    # net = Autoencoder(3, 4, 4, 2, 1, 2, 4)
+    # x = torch.tensor([[1, 2, 0, 2, 1], [1, 0, 0, 0, 1]])
+    # s_in = torch.tensor([[0], [1]])
+    # s_out = torch.tensor([[0], [1]])
+    # result = net.forward(x, s_in, s_out)
     print(f"{result}, {result.size()=}")
