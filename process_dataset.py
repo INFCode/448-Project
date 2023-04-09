@@ -58,7 +58,7 @@ def get_word_mapping(dataset, cutoff=2):
     return word_to_id, id_to_word, vocab
 
 
-def sentences_to_tensor(sentences, word_to_id, vocab):
+def sentences_to_tensor(sentences, word_to_id, vocab,device):
     return pad_sequence(
         [
             torch.tensor(
@@ -66,6 +66,7 @@ def sentences_to_tensor(sentences, word_to_id, vocab):
                     word_to_id[word if word in vocab else unknown_token]
                     for word in sentence
                 ]
+                ,device=device
             )
             for sentence in sentences
         ],
@@ -74,10 +75,10 @@ def sentences_to_tensor(sentences, word_to_id, vocab):
 
 
 def tensor_to_words(tensor, id_to_word):
-    return [[id_to_word[idx] for idx in row] for row in tensor]
+    return [[id_to_word[idx.item()] for idx in row] for row in tensor]
 
 
-def generate_dataset(filename):
+def generate_dataset(filename,device):
     texts, labels = load_data(filename)
     print(f"{len(texts)=}, {len(labels)=}")
     tokenized_texts = tokenize(texts)
@@ -85,8 +86,8 @@ def generate_dataset(filename):
 
     w2id, id2w, vocab = get_word_mapping(tokenized_labels + tokenized_texts)
 
-    text_tensors = sentences_to_tensor(tokenized_texts, w2id, vocab)
-    label_tensors = sentences_to_tensor(tokenized_labels, w2id, vocab)
+    text_tensors = sentences_to_tensor(tokenized_texts, w2id, vocab,device)
+    label_tensors = sentences_to_tensor(tokenized_labels, w2id, vocab,device)
 
     print(f"{text_tensors.size()=}, {label_tensors.size()=}")
 
