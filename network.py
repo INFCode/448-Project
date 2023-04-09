@@ -3,14 +3,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from process_dataset import *
-from torch.optim import Adam
+
 
 class Encoder(nn.Module):
-    def __init__(self, vocab_size, embed_size, hidden_size, num_layers, label_size):
+    def __init__(
+        self, vocab_size, embed_size, hidden_size, num_layers, label_size, device
+    ):
         super(Encoder, self).__init__()
-        self.embedding = nn.Embedding(vocab_size, embed_size, padding_idx=0,device=device)
-        self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True,device=device)
-        self.fc = nn.Linear(hidden_size + label_size, hidden_size,device=device)
+        self.embedding = nn.Embedding(
+            vocab_size, embed_size, padding_idx=0, device=device
+        )
+        self.lstm = nn.LSTM(
+            embed_size, hidden_size, num_layers, batch_first=True, device=device
+        )
+        self.fc = nn.Linear(hidden_size + label_size, hidden_size, device=device)
 
     def forward(self, input_sentence, encode_label):
         embedded = self.embedding(input_sentence)  # (N, L, E)
@@ -39,10 +45,12 @@ class Attention(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, vocab_size, hidden_size, num_layers, label_size):
+    def __init__(self, vocab_size, hidden_size, num_layers, label_size, device):
         super(Decoder, self).__init__()
-        self.lstm = nn.LSTM(hidden_size, hidden_size, num_layers, batch_first=True,device=device)
-        self.fc = nn.Linear(hidden_size + label_size, vocab_size,device=device)
+        self.lstm = nn.LSTM(
+            hidden_size, hidden_size, num_layers, batch_first=True, device=device
+        )
+        self.fc = nn.Linear(hidden_size + label_size, vocab_size, device=device)
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, context, hidden, decode_label):
@@ -69,16 +77,17 @@ class Autoencoder(nn.Module):
         label_size,
         attention_size,
         max_output,
+        device,
     ):
         super(Autoencoder, self).__init__()
         self.max_output = max_output
         self.encoder = Encoder(
-            vocab_size, embed_size, hidden_size, num_layers, label_size
+            vocab_size, embed_size, hidden_size, num_layers, label_size, device
         )
         self.attention = Attention(attention_size)
-        self.decoder = Decoder(vocab_size, hidden_size, num_layers, label_size)
-        self.key_mapping = nn.Linear(hidden_size, attention_size,device=device)
-        self.query_mapping = nn.Linear(hidden_size, attention_size,device=device)
+        self.decoder = Decoder(vocab_size, hidden_size, num_layers, label_size, device)
+        self.key_mapping = nn.Linear(hidden_size, attention_size, device=device)
+        self.query_mapping = nn.Linear(hidden_size, attention_size, device=device)
 
     def forward(self, x, s_encode, s_decode):
         """
@@ -108,92 +117,3 @@ class Autoencoder(nn.Module):
             outputs.append(output)
         outputs = torch.cat(outputs, dim=1)
         return outputs
-
-
-if __name__ == "__main__":
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    filename = './data/paradetox/paradetox.tsv'
-    dataset, w2id, id2w, vocab = generate_dataset(filename,device)
-    train_loader, val_loader, test_loader = split_dataset(dataset)
-
-    max_out_length = 100
-
-    vocab_size = len(w2id)
-    net = Autoencoder(vocab_size, 32, 32, 4, 1, 8, max_out_length)
-
-    net.to(device)
-    # Define the loss function with Classification Cross-Entropy loss and an optimizer with Adam optimizer
-    loss_fn = nn.CrossEntropyLoss()
-    optimizer = Adam(net.parameters(), lr=0.001, weight_decay=0.0001)
-
-
-    epoch = 0
-
-    for i, (X,label) in enumerate(train_loader):
-        print(i)
-        if i % 100 == 0:
-            checkpoint = {
-            'epoch': epoch + 1,
-            'state_dict': net.state_dict(),
-            'optimizer': optimizer.state_dict()
-            }
-            epoch += 1
-            f_path ="./checkpoints/supervised/'checkpoint.pt"
-            torch.save(checkpoint,f_path)
-        if epoch >= 2:
-            break
-        running_loss = 0.0
-        running_acc = 0.0
-        batch_size = X.shape[0]
-        # zero the parameter gradients
-        optimizer.zero_grad()
-        # predict classes using data from the training set
-        s_in = torch.zeros([batch_size,1],device=device)
-        s_out = torch.ones([batch_size,1],device=device)
-        result = net.forward(X, s_in, s_out)
-        outputs = result
-        # transfer labels into distribution vectors
-        # print(X.shape,label.shape)
-        y = torch.zeros(result.shape,device=device) 
-        # print(y.shape)
-        for i, sentence in enumerate(label):
-            sentence_length = sentence.shape
-            for j,index in enumerate(sentence):
-                # print(i,j,index)
-                y[i][j][index] = 1
-        # print(outputs.shape, y.shape)
-        # compute the loss based on model output and real labels
-        loss = loss_fn(outputs, y)
-        # backpropagate the loss
-        loss.backward()
-        # adjust parameters based on the calculated gradients
-        optimizer.step()
-    print("finished training")
-    torch.save(net,"./model_saved/supervised.pt")
-    ### Start Test
-    
-    predicted = []
-    for i, (toxic, detoxic) in enumerate(test_loader):
-        if i >= 1:
-            break
-        batch_size = toxic.shape[0]
-        s_in = torch.zeros([batch_size,1],device=device)
-        s_out = torch.ones([batch_size,1],device=device)
-        predicted = net.forward(toxic,s_in,s_out)
-
-    print("finished prediction")
-    
-    predicted = predicted.argmax(axis = -1)
-    with open("./output/supervised_output.txt","w") as f:
-        for i, word_list in enumerate(tensor_to_words(predicted,id2w)):
-            sentence = " ".join(word_list)
-            f.write(sentence+"\n")
-
-    # net = Autoencoder(3, 4, 4, 2, 1, 2, 4)
-    # x = torch.tensor([[1, 2, 0, 2, 1], [1, 0, 0, 0, 1]])
-    # s_in = torch.tensor([[0], [1]])
-    # s_out = torch.tensor([[0], [1]])
-    # result = net.forward(x, s_in, s_out)
-    # print(f"{result}, {result.size()=}")
