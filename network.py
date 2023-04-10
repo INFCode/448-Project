@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from detoxify import Detoxify
 from process_dataset import *
 
 
@@ -117,3 +118,34 @@ class Autoencoder(nn.Module):
             outputs.append(output)
         outputs = torch.cat(outputs, dim=1)
         return outputs
+
+
+class Classifier(nn.Module):
+    def __init__(self, device):
+        super(Classifier, self).__init__()
+        self.model = Detoxify("original-small", device=device)
+        # this model should not be trained
+        self.device = device
+
+    def forward(self, text):
+        """
+        Simply send the forward request to the pre-trained model.
+        Args:
+        text: A string or a list of B strings that represents the (batch of) string to
+              classify
+        Returns:
+        score: A tensor of shape (B, C) where C is the number of classes.
+        """
+        self.model.model.eval()
+        inputs = self.model.tokenizer(
+            text, return_tensors="pt", truncation=True, padding=True
+        ).to(self.model.device)
+        out = self.model.model(**inputs)[0]
+        scores = torch.sigmoid(out)
+        return scores
+
+    def get_class_names(self, index):
+        """
+        Get the name of the class of toxicity
+        """
+        return self.model.class_names[index]
