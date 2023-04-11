@@ -38,7 +38,6 @@ def train(net, device, id2w, w2id):
             s_out = torch.ones([batch_size, 1], device=device)
             result1, result2, result3 = net.forward(X, s_in, s_out)
             outputs1 = result1.transpose(1, 2)
-            outputs2 = result2.transpose(1, 2)
             outputs3 = result3.transpose(1, 2)
             # transfer labels into distribution vectors
             # print(X.shape,label.shape)
