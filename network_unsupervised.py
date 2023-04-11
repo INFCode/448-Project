@@ -8,6 +8,29 @@ from torch.optim import Adam
 import network
 from tqdm import tqdm
 
+def predict(net, test_loader, device, output_file="./output/unsupervised_output.txt"):
+    ### Start Test
+
+    predicted = []
+    for i, [toxic] in enumerate(test_loader):
+        if i >= 2:
+            break
+        batch_size = toxic.shape[0]
+        s_in = torch.zeros([batch_size, 1], device=device)
+        s_out = torch.ones([batch_size, 1], device=device)
+        predicted.append(net.test_forward(toxic, s_in, s_out))
+
+    predicted = torch.cat(predicted)
+
+    print("finished prediction")
+
+    predicted = predicted.argmax(dim=-1)
+    with open(output_file, "w") as f:
+        for i, word_list in enumerate(tensor_to_words(predicted, id2w)):
+            sentence = " ".join(word_list)
+            f.write(sentence + "\n")
+
+
 def train(net, device, id2w, w2id):
     # Define the loss function with Classification Cross-Entropy loss and an optimizer with Adam optimizer
     classifier = network.Classifier(device)
@@ -88,9 +111,9 @@ def train(net, device, id2w, w2id):
             # compute the loss based on model output and real labels
             loss2 = loss_fn(outputs3, label_output)
 
-            results1 = torch.argmax(results1, dim=2)
-            results2 = torch.argmax(results2, dim=2)
-            results3 = torch.argmax(results3, dim=2)
+            results1 = torch.argmax(result1, dim=2)
+            results2 = torch.argmax(result2, dim=2)
+            results3 = torch.argmax(result3, dim=2)
 
             sentences1 = []
             sentences2 = []

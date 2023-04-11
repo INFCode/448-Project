@@ -141,6 +141,25 @@ class UnsupervisedAutoencoder(nn.Module):
         self.key_mapping = nn.Linear(hidden_size, attention_size, device=device)
         self.query_mapping = nn.Linear(hidden_size, attention_size, device=device)
 
+    def test_forward(self, x, s_encode, s_decode):
+        encoder_outputs, hidden = self.encoder(x, s_encode)  # (N, L, H)
+        # print(f"{encoder_outputs.size()=}")
+        keys = self.key_mapping(encoder_outputs)
+        values = encoder_outputs
+
+        outputs = []
+        for _ in range(self.max_output):
+            query = self.query_mapping(hidden[0][-1].unsqueeze(1))
+            context, _ = self.attention(query, keys, values)
+            output, hidden = self.decoder(context, hidden, s_decode)
+            # print(f"{output.size()}")
+            # if not torch.argmax(output, dim=-1).any():
+            #     # all sentences are padding now
+            #     break
+            outputs.append(output)
+        outputs = torch.cat(outputs, dim=1)
+        return outputs        
+
     def forward(self, x, s_encode, s_decode):
         """
         x is the input of shape (batch_size, sentence_length), where x[i][j] is the j-th word's
