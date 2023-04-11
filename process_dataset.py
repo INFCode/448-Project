@@ -58,15 +58,15 @@ def get_word_mapping(dataset, cutoff=2):
     return word_to_id, id_to_word, vocab
 
 
-def sentences_to_tensor(sentences, word_to_id, vocab,device):
+def sentences_to_tensor(sentences, word_to_id, vocab, device):
     return pad_sequence(
         [
             torch.tensor(
                 [
                     word_to_id[word if word in vocab else unknown_token]
                     for word in sentence
-                ]
-                ,device=device
+                ],
+                device=device,
             )
             for sentence in sentences
         ],
@@ -78,7 +78,7 @@ def tensor_to_words(tensor, id_to_word):
     return [[id_to_word[idx.item()] for idx in row] for row in tensor]
 
 
-def generate_dataset(filename,device):
+def generate_dataset(filename, device):
     texts, labels = load_data(filename)
     print(f"{len(texts)=}, {len(labels)=}")
     tokenized_texts = tokenize(texts)
@@ -86,8 +86,8 @@ def generate_dataset(filename,device):
 
     w2id, id2w, vocab = get_word_mapping(tokenized_labels + tokenized_texts)
 
-    text_tensors = sentences_to_tensor(tokenized_texts, w2id, vocab,device)
-    label_tensors = sentences_to_tensor(tokenized_labels, w2id, vocab,device)
+    text_tensors = sentences_to_tensor(tokenized_texts, w2id, vocab, device)
+    label_tensors = sentences_to_tensor(tokenized_labels, w2id, vocab, device)
 
     print(f"{text_tensors.size()=}, {label_tensors.size()=}")
 
@@ -122,7 +122,7 @@ def split_dataset(
 
 
 if __name__ == "__main__":
-    dataset, w2id, id2w, vocab = generate_dataset("sample_data.tsv")
+    dataset, w2id, id2w, vocab = generate_dataset("sample_data.tsv", "cpu")
     print(f"{dataset=}")
     print(f"{w2id=}")
     print(f"{id2w=}")

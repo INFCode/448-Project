@@ -108,7 +108,7 @@ class Autoencoder(nn.Module):
 
         outputs = []
         for _ in range(self.max_output):
-            query = self.query_mapping(hidden[0][1].unsqueeze(1))
+            query = self.query_mapping(hidden[0][-1].unsqueeze(1))
             context, _ = self.attention(query, keys, values)
             output, hidden = self.decoder(context, hidden, s_decode)
             # print(f"{output.size()}")
