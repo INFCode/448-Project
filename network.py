@@ -119,6 +119,82 @@ class Autoencoder(nn.Module):
         outputs = torch.cat(outputs, dim=1)
         return outputs
 
+class UnsupervisedAutoencoder(nn.Module):
+    def __init__(
+        self,
+        vocab_size,
+        embed_size,
+        hidden_size,
+        num_layers,
+        label_size,
+        attention_size,
+        max_output,
+        device
+    ):
+        super(UnsupervisedAutoencoder, self).__init__()
+        self.max_output = max_output
+        self.encoder = Encoder(
+            vocab_size, embed_size, hidden_size, num_layers, label_size, device
+        )
+        self.attention = Attention(attention_size)
+        self.decoder = Decoder(vocab_size, hidden_size, num_layers, label_size, device)
+        self.key_mapping = nn.Linear(hidden_size, attention_size, device=device)
+        self.query_mapping = nn.Linear(hidden_size, attention_size, device=device)
+
+    def forward(self, x, s_encode, s_decode):
+        """
+        x is the input of shape (batch_size, sentence_length), where x[i][j] is the j-th word's
+        id in the i-th sentnece in the batch
+        s_encode and s_decode are currently not used. Just set s_encode to be (batch_size, 1) of zeros
+        and s_decode to be (batch_size,1) of ones would be fine
+
+        output1, output2, output3 are of shape (batch_size, out_sentence_length, vocab_size), where output[i][j][k] is the
+        possibility of using the word whose id is k at position j in the i-th sentence of the batch.
+        """
+
+        encoder_outputs, hidden = self.encoder(x, s_encode)  # (N, L, H)
+        # print(f"{encoder_outputs.size()=}")
+        keys = self.key_mapping(encoder_outputs)
+        values = encoder_outputs
+
+        outputs1 = []
+        outputs2 = []
+        for _ in range(self.max_output):
+            query = self.query_mapping(hidden[0][-1].unsqueeze(1))
+            context, _ = self.attention(query, keys, values)
+            output1, hidden = self.decoder(context, hidden, s_encode)
+            query2 = self.query_mapping(hidden[0][-1].unsqueeze(1))
+            context2, _ = self.attention(query2, keys, values)
+            output2, hidden = self.decoder(context2, hidden, s_decode)
+
+
+            # print(f"{output.size()}")
+            # if not torch.argmax(output, dim=-1).any():
+            #     # all sentences are padding now
+            #     break
+            outputs1.append(output1)
+            outputs2.append(output2)
+        outputs1 = torch.cat(outputs1, dim=1)
+        outputs2 = torch.cat(outputs2, dim=1)
+
+        x2 = torch.argmax(outputs2, dim=2)
+        encoder_outputs, hidden = self.encoder(x2, s_decode)  # (N, L, H)
+        # print(f"{encoder_outputs.size()=}")
+        keys = self.key_mapping(encoder_outputs)
+        values = encoder_outputs
+
+        outputs3 = []
+        for _ in range(self.max_output):
+            query = self.query_mapping(hidden[0][-1].unsqueeze(1))
+            context, _ = self.attention(query, keys, values)
+            output3, hidden = self.decoder(context, hidden, s_decode)
+            # print(f"{output.size()}")
+            # if not torch.argmax(output, dim=-1).any():
+            #     # all sentences are padding now
+            #     break
+            outputs3.append(output3)
+        outputs3 = torch.cat(outputs3, dim=1)
+        return outputs1, outputs2, outputs3
 
 class Classifier(nn.Module):
     def __init__(self, device):
