@@ -31,7 +31,7 @@ def predict(net, test_loader, device, output_file="./output/unsupervised_output.
             f.write(sentence + "\n")
 
 
-def train(net, device, id2w, w2id):
+def train(net, device, l = 5):
     # Define the loss function with Classification Cross-Entropy loss and an optimizer with Adam optimizer
     classifier = network.Classifier(device)
     for param in classifier.parameters():
@@ -150,7 +150,7 @@ def train(net, device, id2w, w2id):
             loss4 = torch.linalg.norm(labels2 - torch.zeros_like(labels2))
             loss5 = torch.linalg.norm(labels3 - torch.ones_like(labels3))
             
-            loss = loss1 + loss2 + loss3 + loss4 + loss5
+            loss = loss1 + loss2 + l * (loss3 + loss4 + loss5)
             # print(f"{outputs[:,1,0]=}, {torch.sum(label)=}")
             # backpropagate the loss
             loss.backward()
@@ -159,7 +159,35 @@ def train(net, device, id2w, w2id):
                 loss_traj.append(loss.item())
             # adjust parameters based on the calculated gradients
             optimizer.step()
+        predict(
+            net,
+            test_loader,
+            device,
+            output_file=f"./output/unsupervised_output_mid{epoch}.txt",
+        )
     print("finished training")
     torch.save(net.state_dict(), "./model_saved/unsupervised.pt")
     return net
 
+if __name__ == "__main__":
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    use_checkpoint = False
+    filename = "./data/paradetox/paradetox.tsv"
+    dataset, w2id, id2w, vocab = generate_dataset(filename, device)
+    train_loader, val_loader, test_loader = split_dataset(dataset)
+
+    max_out_length = 100
+
+    vocab_size = len(w2id)
+    net = network.UnsupervisedAutoencoder(vocab_size, 32, 1, 1, 1, 8, max_out_length, device)
+
+    if use_checkpoint:
+        checkpoint = torch.load("./model_saved/unsupervised.pt")
+        net.load_state_dict(checkpoint)
+        print("checkpoint loaded")
+
+    net.to(device)
+
+    predict(net, test_loader, device, output_file="./output/unsupervised_output_pre.txt")
+    net = train(net, device=device)
+    predict(net, test_loader, device)
