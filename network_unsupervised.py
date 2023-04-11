@@ -172,9 +172,9 @@ def train(net, device, l = 5):
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     use_checkpoint = False
-    filename = "./data/paradetox/paradetox.tsv"
-    dataset, w2id, id2w, vocab = generate_dataset(filename, device)
-    train_loader, val_loader, test_loader = split_dataset(dataset)
+    filename = "./data/jigsaw/train.csv"
+    tox, nontox, w2id, id2w, vocab = generate_nonparallel_dataset(filename, device)
+    train_loader, val_loader, test_loader = split_dataset(tox)
 
     max_out_length = 100
 
