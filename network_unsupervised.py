@@ -31,7 +31,7 @@ def predict(net, test_loader, device, output_file="./output/unsupervised_output.
             f.write(sentence + "\n")
 
 
-def train(net, device, l = 5):
+def train(net, device, l = 200):
     # Define the loss function with Classification Cross-Entropy loss and an optimizer with Adam optimizer
     classifier = network.Classifier(device)
     for param in classifier.parameters():
