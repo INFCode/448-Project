@@ -64,7 +64,7 @@ class Decoder(nn.Module):
         # print(f"1:{output.size()}")
         output = self.fc(output)
         # print(f"2:{output.size()}")
-        output = self.softmax(output)
+        # output = self.softmax(output)
         return output, hidden
 
 
