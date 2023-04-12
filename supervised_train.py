@@ -34,7 +34,7 @@ def predict(net, test_loader, device, output_file="./output/supervised_output.tx
 
     predicted = []
     for i, (toxic, _) in enumerate(test_loader):
-        if i >= 2:
+        if i >= 20:
             break
         batch_size = toxic.shape[0]
         s_in = torch.zeros([batch_size, 1], device=device)
@@ -42,7 +42,7 @@ def predict(net, test_loader, device, output_file="./output/supervised_output.tx
         predicted.append(net.forward(toxic, s_in, s_out))
 
     predicted = torch.cat(predicted)
-
+    original = torch.cat([x for (x,y) in test_loader])
     print("finished prediction")
 
     # predicted = predicted.argmax(dim=-1)
@@ -53,8 +53,9 @@ def predict(net, test_loader, device, output_file="./output/supervised_output.tx
             pred[i][j] = torch.multinomial(word, 1)
     with open(output_file, "w") as f:
         for i, word_list in enumerate(tensor_to_words(pred, id2w)):
+            original_sentence = " ".join(tensor_to_words(original, id2w)[i])
             sentence = " ".join(word_list)
-            f.write(sentence + "\n")
+            f.write(original_sentence +  "  " + sentence + "\n")
 
 
 def train(net, total_epoch, device):
@@ -75,7 +76,7 @@ def train(net, total_epoch, device):
 
     # Define the loss function with Classification Cross-Entropy loss and an optimizer with Adam optimizer
     loss_fn = nn.CrossEntropyLoss(ignore_index=w2id[pad_token])
-    optimizer = Adam(net.parameters(), lr=1e-4, weight_decay=1e-4)
+    optimizer = Adam(net.parameters(), lr=1e-4)
 
     # total_epoch = 2
     loss_traj = []
@@ -204,5 +205,5 @@ if __name__ == "__main__":
     net = torch.compile(net)
 
     predict(net, test_loader, device, output_file="./output/supervised_output_pre.txt")
-    net = train(net, total_epoch=20, device=device)
+    net = train(net, total_epoch=40, device=device)
     predict(net, test_loader, device)
