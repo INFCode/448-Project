@@ -44,7 +44,7 @@ def train(net, device, l = 5):
     loss_traj = []
     for epoch in tqdm(range(total_epoch)):
         progress = tqdm(enumerate(train_loader), total=len(train_loader))
-        for i, X in progress:
+        for i, [X] in progress:
             if i % 1000 == 0:
                 checkpoint = {
                     "epoch": epoch + 1,
