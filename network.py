@@ -78,6 +78,8 @@ class Autoencoder(nn.Module):
         label_size,
         attention_size,
         max_output,
+        pad_id,
+        eos_id,
         device,
     ):
         super(Autoencoder, self).__init__()
@@ -89,6 +91,11 @@ class Autoencoder(nn.Module):
         self.decoder = Decoder(vocab_size, hidden_size, num_layers, label_size, device)
         self.key_mapping = nn.Linear(hidden_size, attention_size, device=device)
         self.query_mapping = nn.Linear(hidden_size, attention_size, device=device)
+        self.device = device
+        self.pad_tensor = F.one_hot(
+            torch.tensor(pad_id, device=self.device).long(), num_classes=vocab_size
+        )
+        self.eos_id = eos_id
 
     def forward(self, x, s_encode, s_decode):
         """
@@ -100,17 +107,22 @@ class Autoencoder(nn.Module):
         output is of shape (batch_size, out_sentence_length, vocab_size), where output[i][j][k] is the
         possibility of using the word whose id is k at position j in the i-th sentence of the batch.
         """
-
+        batch_size = x.size(0)
         encoder_outputs, hidden = self.encoder(x, s_encode)  # (N, L, H)
         # print(f"{encoder_outputs.size()=}")
         keys = self.key_mapping(encoder_outputs)
         values = encoder_outputs
 
         outputs = []
+        ended = torch.zeros((batch_size, 1, 1), device=self.device)
+        batched_padding = self.pad_tensor.repeat(batch_size, 1, 1)
         for _ in range(self.max_output):
             query = self.query_mapping(hidden[0][-1].unsqueeze(1))
             context, _ = self.attention(query, keys, values)
             output, hidden = self.decoder(context, hidden, s_decode)
+            # ended sentences are filled with <PAD>
+            output = output * (1 - ended) + batched_padding * ended
+            ended += torch.argmax(output, dim=-1, keepdim=True) == self.eos_id
             # print(f"{output.size()}")
             # if not torch.argmax(output, dim=-1).any():
             #     # all sentences are padding now
@@ -118,6 +130,7 @@ class Autoencoder(nn.Module):
             outputs.append(output)
         outputs = torch.cat(outputs, dim=1)
         return outputs
+
 
 class UnsupervisedAutoencoder(nn.Module):
     def __init__(
@@ -129,7 +142,7 @@ class UnsupervisedAutoencoder(nn.Module):
         label_size,
         attention_size,
         max_output,
-        device
+        device,
     ):
         super(UnsupervisedAutoencoder, self).__init__()
         self.max_output = max_output
@@ -158,7 +171,7 @@ class UnsupervisedAutoencoder(nn.Module):
             #     break
             outputs.append(output)
         outputs = torch.cat(outputs, dim=1)
-        return outputs        
+        return outputs
 
     def forward(self, x, s_encode, s_decode):
         """
@@ -185,7 +198,6 @@ class UnsupervisedAutoencoder(nn.Module):
             query2 = self.query_mapping(hidden[0][-1].unsqueeze(1))
             context2, _ = self.attention(query2, keys, values)
             output2, hidden = self.decoder(context2, hidden, s_decode)
-
 
             # print(f"{output.size()}")
             # if not torch.argmax(output, dim=-1).any():
@@ -214,6 +226,7 @@ class UnsupervisedAutoencoder(nn.Module):
             outputs3.append(output3)
         outputs3 = torch.cat(outputs3, dim=1)
         return outputs1, outputs2, outputs3
+
 
 class Classifier(nn.Module):
     def __init__(self, device):

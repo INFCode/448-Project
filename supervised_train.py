@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 
+
 def early_stopping(validation_loss, curr_count_to_patience, global_min_loss):
     """Calculate new patience and validation loss.
 
@@ -25,7 +26,6 @@ def early_stopping(validation_loss, curr_count_to_patience, global_min_loss):
         curr_count_to_patience = 0
     #
     return curr_count_to_patience, global_min_loss
-
 
 
 def predict(net, test_loader, device, output_file="./output/supervised_output.txt"):
@@ -51,35 +51,33 @@ def predict(net, test_loader, device, output_file="./output/supervised_output.tx
             f.write(sentence + "\n")
 
 
-def train(net, device):
+def train(net, total_epoch, device):
     def _get_metrics(loader):
         fluency = 0
-        detoxification=0 
+        detoxification = 0
         synonym = 0
         criterion = torch.nn.CrossEntropyLoss()
         running_loss = []
         s_in = torch.zeros([batch_size, 1], device=device)
         s_out = torch.ones([batch_size, 1], device=device)
-        for X,y in loader:
+        for X, y in loader:
             with torch.no_grad():
                 output = net.forward(X, s_in, s_out)
-                running_loss.append(criterion(output,y).item())
-        loss = torch.mean(running_loss)
+                running_loss.append(criterion(output, y).item())
+        loss = torch.mean(torch.tensor(running_loss))
         return fluency, detoxification, synonym, loss
-    
 
     # Define the loss function with Classification Cross-Entropy loss and an optimizer with Adam optimizer
     loss_fn = nn.CrossEntropyLoss(ignore_index=w2id[pad_token])
     optimizer = Adam(net.parameters(), lr=5e-4, weight_decay=1e-4)
 
-    total_epoch = 2
+    # total_epoch = 2
     loss_traj = []
     stats = []
     patience = 5
     curr_count_to_patience = 0
     # initial val loss for early stopping
     global_min_loss = 0
-
 
     for epoch in tqdm(range(total_epoch)):
         running_loss = 0.0
@@ -95,7 +93,7 @@ def train(net, device):
                 }
                 f_path = "./checkpoints/supervised/checkpoint.pt"
                 torch.save(checkpoint, f_path)
-                print('[%d, %5d] loss: %.3f' %(epoch + 1, i + 1, running_loss / 1000))
+                # print("[%d, %5d] loss: %.3f" % (epoch + 1, i + 1, running_loss / 1000))
                 running_loss = 0
             batch_size = X.shape[0]
             # zero the parameter gradients
@@ -123,7 +121,7 @@ def train(net, device):
             len_diff = len_label - len_out
             if len_diff > 0:
                 # pad the "<PAD>" token at the end
-                pad_tensor = F.one_hot(w2id[pad_token], vocab_size)
+                pad_tensor = F.one_hot(torch.tensor(w2id[pad_token]).long(), vocab_size)
                 outputs = torch.cat(
                     [outputs, pad_tensor.repeat(outputs.size(0), 1, len_diff)], dim=1
                 )
@@ -142,6 +140,7 @@ def train(net, device):
             if i % 100 == 0:
                 loss_traj.append(loss.item())
             # adjust parameters based on the calculated gradients
+            nn.utils.clip_grad_norm_(net.parameters(), 1)
             optimizer.step()
         ### Early stopping
         # train_fluency, train_detoxification, train_synonym, train_loss = _get_metrics(train_loader)
@@ -171,7 +170,18 @@ if __name__ == "__main__":
     max_out_length = 100
 
     vocab_size = len(w2id)
-    net = Autoencoder(vocab_size, 32, 1, 1, 1, 8, max_out_length, device)
+    net = Autoencoder(
+        vocab_size=vocab_size,
+        embed_size=64,
+        hidden_size=2,
+        num_layers=2,
+        label_size=1,
+        attention_size=16,
+        max_output=max_out_length,
+        pad_id=w2id[pad_token],
+        eos_id=w2id[end_of_sentence_token],
+        device=device,
+    )
 
     if use_checkpoint:
         checkpoint = torch.load("./model_saved/supervised.pt")
@@ -179,7 +189,8 @@ if __name__ == "__main__":
         print("checkpoint loaded")
 
     net.to(device)
+    net = torch.compile(net)
 
     predict(net, test_loader, device, output_file="./output/supervised_output_pre.txt")
-    net = train(net, device=device)
+    net = train(net, total_epoch=20, device=device)
     predict(net, test_loader, device)

@@ -122,11 +122,16 @@ def split_dataset(
 
 
 if __name__ == "__main__":
-    dataset, w2id, id2w, vocab = generate_dataset("sample_data.tsv", "cpu")
-    print(f"{dataset=}")
-    print(f"{w2id=}")
-    print(f"{id2w=}")
-    print(f"{vocab=}")
+    dataset, w2id, id2w, vocab = generate_dataset(
+        "./data/paradetox/paradetox.tsv", "cpu"
+    )
+    # print(f"{dataset=}")
+    # print(f"{w2id=}")
+    # print(f"{id2w=}")
+    # print(f"{vocab=}")
     train_loader, val_loader, test_loader = split_dataset(dataset)
     for k, v in train_loader:
+        k_sent = " ".join([id2w[x.item()] for x in k[0] if x != w2id[pad_token]])
         print(f"{k=},\n{v=}")
+        print(f"{k_sent=}")
+        break
