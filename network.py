@@ -96,6 +96,7 @@ class Autoencoder(nn.Module):
             torch.tensor(pad_id, device=self.device).long(), num_classes=vocab_size
         )
         self.eos_id = eos_id
+        self.pad_id = pad_id
 
     def forward(self, x, s_encode, s_decode):
         """
@@ -120,14 +121,16 @@ class Autoencoder(nn.Module):
             query = self.query_mapping(hidden[0][-1].unsqueeze(1))
             context, _ = self.attention(query, keys, values)
             output, hidden = self.decoder(context, hidden, s_decode)
+            output[:, :, self.eos_id] = 0
+            output[:, :, self.pad_id] = 0
             # ended sentences are filled with <PAD>
-            output = output * (1 - ended) + batched_padding * ended
-            ended += torch.argmax(output, dim=-1, keepdim=True) == self.eos_id
+            # output = output * (1 - ended) + batched_padding * ended
+            # ended += torch.argmax(output, dim=-1, keepdim=True) == self.eos_id
             # print(f"{output.size()}")
-            # if not torch.argmax(output, dim=-1).any():
-            #     # all sentences are padding now
-            #     break
             outputs.append(output)
+            # if ended.all():
+            #    # all sentences are padding now
+            #    break
         outputs = torch.cat(outputs, dim=1)
         return outputs
 

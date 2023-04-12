@@ -1,3 +1,4 @@
+from enum import _EnumDict
 import torch
 from torch.optim import Adam
 from process_dataset import *
@@ -44,9 +45,14 @@ def predict(net, test_loader, device, output_file="./output/supervised_output.tx
 
     print("finished prediction")
 
-    predicted = predicted.argmax(dim=-1)
+    # predicted = predicted.argmax(dim=-1)
+    predicted = F.softmax(predicted)
+    pred = torch.zeros(predicted.size()[:2])
+    for i, sentence in enumerate(predicted):
+        for j, word in enumerate(sentence):
+            pred[i][j] = torch.multinomial(word, 1)
     with open(output_file, "w") as f:
-        for i, word_list in enumerate(tensor_to_words(predicted, id2w)):
+        for i, word_list in enumerate(tensor_to_words(pred, id2w)):
             sentence = " ".join(word_list)
             f.write(sentence + "\n")
 
@@ -69,7 +75,7 @@ def train(net, total_epoch, device):
 
     # Define the loss function with Classification Cross-Entropy loss and an optimizer with Adam optimizer
     loss_fn = nn.CrossEntropyLoss(ignore_index=w2id[pad_token])
-    optimizer = Adam(net.parameters(), lr=5e-4, weight_decay=1e-4)
+    optimizer = Adam(net.parameters(), lr=1e-4, weight_decay=1e-4)
 
     # total_epoch = 2
     loss_traj = []
@@ -121,9 +127,15 @@ def train(net, total_epoch, device):
             len_diff = len_label - len_out
             if len_diff > 0:
                 # pad the "<PAD>" token at the end
-                pad_tensor = F.one_hot(torch.tensor(w2id[pad_token]).long(), vocab_size)
+                pad_tensor = F.one_hot(
+                    torch.tensor(w2id[pad_token], device=device).long(), vocab_size
+                )
                 outputs = torch.cat(
-                    [outputs, pad_tensor.repeat(outputs.size(0), 1, len_diff)], dim=1
+                    [
+                        outputs,
+                        pad_tensor.repeat(outputs.size(0), len_diff, 1).transpose(1, 2),
+                    ],
+                    dim=2,
                 )
             elif len_diff < 0:
                 label = torch.nn.functional.pad(
@@ -167,7 +179,7 @@ if __name__ == "__main__":
     dataset, w2id, id2w, vocab = generate_dataset(filename, device)
     train_loader, val_loader, test_loader = split_dataset(dataset)
 
-    max_out_length = 100
+    max_out_length = 20
 
     vocab_size = len(w2id)
     net = Autoencoder(
