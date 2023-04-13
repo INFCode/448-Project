@@ -63,6 +63,9 @@ def generate_nonparallel_dataset(filename, device, discard_threshold=-1):
         else:
             nontoxic_texts.append(x)
 
+    print(f"total toxic samples: {len(toxic_texts)}")
+    print(f"total non-toxic samples: {len(nontoxic_texts)}")
+
     toxic_text_tensors = sentences_to_tensor(toxic_texts, w2id, vocab, device)
     nontoxic_text_tensors = sentences_to_tensor(nontoxic_texts, w2id, vocab, device)
 
