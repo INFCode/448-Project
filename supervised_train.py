@@ -42,7 +42,7 @@ def predict(net, test_loader, device, output_file="./output/supervised_output.tx
         predicted.append(net.forward(toxic, s_in, s_out))
 
     predicted = torch.cat(predicted)
-    original = torch.cat([x for (x,y) in test_loader])
+    original = torch.cat([x for (x, y) in test_loader])
     print("finished prediction")
 
     # predicted = predicted.argmax(dim=-1)
@@ -55,7 +55,7 @@ def predict(net, test_loader, device, output_file="./output/supervised_output.tx
         for i, word_list in enumerate(tensor_to_words(pred, id2w)):
             original_sentence = " ".join(tensor_to_words(original, id2w)[i])
             sentence = " ".join(word_list)
-            f.write(original_sentence +  "  " + sentence + "\n")
+            f.write(original_sentence + "  " + sentence + "\n")
 
 
 def train(net, total_epoch, device):
@@ -185,11 +185,11 @@ if __name__ == "__main__":
     vocab_size = len(w2id)
     net = Autoencoder(
         vocab_size=vocab_size,
-        embed_size=64,
-        hidden_size=2,
-        num_layers=2,
+        embed_size=256,
+        hidden_size=64,
+        num_layers=8,
         label_size=1,
-        attention_size=16,
+        attention_size=72,
         max_output=max_out_length,
         pad_id=w2id[pad_token],
         eos_id=w2id[end_of_sentence_token],
@@ -202,8 +202,9 @@ if __name__ == "__main__":
         print("checkpoint loaded")
 
     net.to(device)
+    torch.set_float32_matmul_precision("high")
     net = torch.compile(net)
 
     predict(net, test_loader, device, output_file="./output/supervised_output_pre.txt")
-    net = train(net, total_epoch=40, device=device)
+    net = train(net, total_epoch=10, device=device)
     predict(net, test_loader, device)
