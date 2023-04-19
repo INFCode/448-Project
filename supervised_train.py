@@ -101,8 +101,8 @@ def train(net, total_epoch, device):
             # zero the parameter gradients
             optimizer.zero_grad()
             # predict classes using data from the training set
-            result = net(X)
-            # outputs = result.transpose(1, 2)
+            result = net.forward(X)
+            outputs = result.transpose(1, 2)
             # transfer labels into distribution vectors
             # print(X.shape,label.shape)
             # y = torch.zeros(result.shape, device=device)
@@ -115,29 +115,29 @@ def train(net, total_epoch, device):
             # print(outputs.shape, y.shape)
 
             # pad as needed
-            # len_out = outputs.size(-1)
-            # len_label = label.size(1)
+            len_out = outputs.size(-1)
+            len_label = label.size(1)
 
-            # len_diff = len_label - len_out
-            # if len_diff > 0:
-            #     # pad the "<PAD>" token at the end
-            #     pad_tensor = F.one_hot(
-            #         torch.tensor(w2id[pad_token], device=device).long(), vocab_size
-            #     )
-            #     outputs = torch.cat(
-            #         [
-            #             outputs,
-            #             pad_tensor.repeat(outputs.size(0), len_diff, 1).transpose(1, 2),
-            #         ],
-            #         dim=2,
-            #     )
-            # elif len_diff < 0:
-            #     label = torch.nn.functional.pad(
-            #         label, (0, -len_diff), value=w2id[pad_token]
-            #     )
+            len_diff = len_label - len_out
+            if len_diff > 0:
+                # pad the "<PAD>" token at the end
+                pad_tensor = F.one_hot(
+                    torch.tensor(w2id[pad_token], device=device).long(), vocab_size
+                )
+                outputs = torch.cat(
+                    [
+                        outputs,
+                        pad_tensor.repeat(outputs.size(0), len_diff, 1).transpose(1, 2),
+                    ],
+                    dim=2,
+                )
+            elif len_diff < 0:
+                label = torch.nn.functional.pad(
+                    label, (0, -len_diff), value=w2id[pad_token]
+                )
             # print(f"{outputs.size()=}, {label.size()=}")
             # compute the loss based on model output and real labels
-            loss = loss_fn(result.view(-1, vocab_size), label.view(-1))
+            loss = loss_fn(outputs, label)
             # print(f"{outputs[:,1,0]=}, {torch.sum(label)=}")
             # backpropagate the loss
             loss.backward()
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     dataset, w2id, id2w, vocab = generate_dataset(filename, device)
     train_loader, val_loader, test_loader = split_dataset(dataset)
 
-    # max_out_length = 20
+    max_out_length = 20
 
     vocab_size = len(w2id)
     net = Autoencoder(
@@ -194,5 +194,5 @@ if __name__ == "__main__":
     net = torch.compile(net)
 
     predict(net, test_loader, device, output_file="./output/supervised_output_pre.txt")
-    net = train(net, total_epoch=50, device=device)
+    net = train(net, total_epoch=10, device=device)
     predict(net, test_loader, device)
