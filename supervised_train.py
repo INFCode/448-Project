@@ -10,10 +10,8 @@ from tqdm import tqdm
 
 def early_stopping(validation_loss, curr_count_to_patience, global_min_loss):
     """Calculate new patience and validation loss.
-
     Increment curr_count_to_patience by one if new loss is not less than global_min_loss
     Otherwise, update global_min_loss with the current val loss, and reset curr_count_to_patience to 0
-
     Returns: new values of curr_count_to_patience and global_min_loss
     """
     # TODO implement early stopping
@@ -43,15 +41,16 @@ def predict(net, test_loader, device, output_file="./output/supervised_output.tx
     original = torch.cat([x for (x, y) in test_loader])
     print("finished prediction")
 
-    # predicted = predicted.argmax(dim=-1)
-    predicted = F.softmax(predicted)
-    pred = torch.zeros(predicted.size()[:2])
-    for i, sentence in enumerate(predicted):
-        for j, word in enumerate(sentence):
-            pred[i][j] = torch.multinomial(word, 1)
+    predicted = predicted.argmax(dim=-1)
+    #predicted = F.softmax(predicted)
+    #pred = torch.zeros(predicted.size()[:2])
+    #for i, sentence in enumerate(predicted):
+    #    for j, word in enumerate(sentence):
+    #        pred[i][j] = torch.multinomial(word, 1)
     with open(output_file, "w") as f:
-        for i, word_list in enumerate(tensor_to_words(pred, id2w)):
-            original_sentence = " ".join(tensor_to_words(original, id2w)[i])
+        original_words = tensor_to_words(original, id2w)
+        for i, word_list in enumerate(tensor_to_words(predicted, id2w)):
+            original_sentence = " ".join(original_words[i])
             sentence = " ".join(word_list)
             f.write(original_sentence + "  " + sentence + "\n")
 
@@ -71,8 +70,8 @@ def train(net, total_epoch, device):
         return fluency, detoxification, synonym, loss
 
     # Define the loss function with Classification Cross-Entropy loss and an optimizer with Adam optimizer
-    loss_fn = nn.CrossEntropyLoss()
-    optimizer = Adam(net.parameters(), lr=1e-3)
+    loss_fn = nn.CrossEntropyLoss(ignore_index=w2id[pad_token])
+    optimizer = Adam(net.parameters(), lr=1e-4)
 
     # total_epoch = 2
     loss_traj = []
