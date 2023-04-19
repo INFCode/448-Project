@@ -50,8 +50,9 @@ def predict(net, test_loader, device, output_file="./output/supervised_output.tx
     #    for j, word in enumerate(sentence):
     #        pred[i][j] = torch.multinomial(word, 1)
     with open(output_file, "w") as f:
+        original_words = tensor_to_words(original, id2w)
         for i, word_list in enumerate(tensor_to_words(predicted, id2w)):
-            original_sentence = " ".join(tensor_to_words(original, id2w)[i])
+            original_sentence = " ".join(original_words[i])
             sentence = " ".join(word_list)
             f.write(original_sentence + "  " + sentence + "\n")
 
