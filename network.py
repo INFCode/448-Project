@@ -69,70 +69,26 @@ class Decoder(nn.Module):
 
 
 class Autoencoder(nn.Module):
-    def __init__(
-        self,
-        vocab_size,
-        embed_size,
-        hidden_size,
-        num_layers,
-        label_size,
-        attention_size,
-        max_output,
-        pad_id,
-        eos_id,
-        device,
-    ):
+    def __init__(self, embedding_dim, hidden_dim, num_layers, device, vocab_size):
         super(Autoencoder, self).__init__()
-        self.max_output = max_output
-        self.encoder = Encoder(
-            vocab_size, embed_size, hidden_size, num_layers, label_size, device
-        )
-        self.attention = Attention(attention_size)
-        self.decoder = Decoder(vocab_size, hidden_size, num_layers, label_size, device)
-        self.key_mapping = nn.Linear(hidden_size, attention_size, device=device)
-        self.query_mapping = nn.Linear(hidden_size, attention_size, device=device)
-        self.device = device
-        self.pad_tensor = F.one_hot(
-            torch.tensor(pad_id, device=self.device).long(), num_classes=vocab_size
-        )
-        self.eos_id = eos_id
-        self.pad_id = pad_id
+        
+        self.embedding = nn.Embedding(vocab_size, embedding_dim, device = device)
+        self.encoder = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim, 
+                               num_layers=num_layers, batch_first=True, device = device)
+        self.attention = nn.Linear(hidden_dim, hidden_dim, device = device)
+        self.decoder = nn.LSTM(input_size=embedding_dim, hidden_size=embedding_dim,
+                               num_layers=num_layers, batch_first=True, device = device)
+        self.output = nn.Linear(embedding_dim, vocab_size, device= device)
 
-    def forward(self, x, s_encode, s_decode):
-        """
-        x is the input of shape (batch_size, sentence_length), where x[i][j] is the j-th word's
-        id in the i-th sentnece in the batch
-        s_encode and s_decode are currently not used. Just set s_encode to be (batch_size, 1) of zeros
-        and s_decode to be (batch_size,1) of ones would be fine
-
-        output is of shape (batch_size, out_sentence_length, vocab_size), where output[i][j][k] is the
-        possibility of using the word whose id is k at position j in the i-th sentence of the batch.
-        """
-        batch_size = x.size(0)
-        encoder_outputs, hidden = self.encoder(x, s_encode)  # (N, L, H)
-        # print(f"{encoder_outputs.size()=}")
-        keys = self.key_mapping(encoder_outputs)
-        values = encoder_outputs
-
-        outputs = []
-        ended = torch.zeros((batch_size, 1, 1), device=self.device)
-        batched_padding = self.pad_tensor.repeat(batch_size, 1, 1)
-        for _ in range(self.max_output):
-            query = self.query_mapping(hidden[0][-1].unsqueeze(1))
-            context, _ = self.attention(query, keys, values)
-            output, hidden = self.decoder(context, hidden, s_decode)
-            output[:, :, self.eos_id] = 0
-            output[:, :, self.pad_id] = 0
-            # ended sentences are filled with <PAD>
-            # output = output * (1 - ended) + batched_padding * ended
-            # ended += torch.argmax(output, dim=-1, keepdim=True) == self.eos_id
-            # print(f"{output.size()}")
-            outputs.append(output)
-            # if ended.all():
-            #    # all sentences are padding now
-            #    break
-        outputs = torch.cat(outputs, dim=1)
-        return outputs
+    def forward(self, x):
+        embedded = self.embedding(x)
+        encoder_output, (hidden, cell) = self.encoder(embedded)
+        energy = self.attention(encoder_output)
+        attention_scores = torch.softmax(energy, dim=1)
+        context_vector = torch.bmm(attention_scores.permute(0, 2, 1), encoder_output)
+        decoder_output, _ = self.decoder(context_vector, (hidden, cell))
+        output = self.output(decoder_output)
+        return output
 
 
 class UnsupervisedAutoencoder(nn.Module):

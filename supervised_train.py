@@ -37,9 +37,7 @@ def predict(net, test_loader, device, output_file="./output/supervised_output.tx
         if i >= 20:
             break
         batch_size = toxic.shape[0]
-        s_in = torch.zeros([batch_size, 1], device=device)
-        s_out = torch.ones([batch_size, 1], device=device)
-        predicted.append(net.forward(toxic, s_in, s_out))
+        predicted.append(net.forward(toxic))
 
     predicted = torch.cat(predicted)
     original = torch.cat([x for (x, y) in test_loader])
@@ -65,18 +63,16 @@ def train(net, total_epoch, device):
         synonym = 0
         criterion = torch.nn.CrossEntropyLoss()
         running_loss = []
-        s_in = torch.zeros([batch_size, 1], device=device)
-        s_out = torch.ones([batch_size, 1], device=device)
         for X, y in loader:
             with torch.no_grad():
-                output = net.forward(X, s_in, s_out)
+                output = net.forward(X)
                 running_loss.append(criterion(output, y).item())
         loss = torch.mean(torch.tensor(running_loss))
         return fluency, detoxification, synonym, loss
 
     # Define the loss function with Classification Cross-Entropy loss and an optimizer with Adam optimizer
     loss_fn = nn.CrossEntropyLoss(ignore_index=w2id[pad_token])
-    optimizer = Adam(net.parameters(), lr=1e-4)
+    optimizer = Adam(net.parameters(), lr=1e-3)
 
     # total_epoch = 2
     loss_traj = []
@@ -106,9 +102,7 @@ def train(net, total_epoch, device):
             # zero the parameter gradients
             optimizer.zero_grad()
             # predict classes using data from the training set
-            s_in = torch.zeros([batch_size, 1], device=device)
-            s_out = torch.ones([batch_size, 1], device=device)
-            result = net.forward(X, s_in, s_out)
+            result = net.forward(X)
             outputs = result.transpose(1, 2)
             # transfer labels into distribution vectors
             # print(X.shape,label.shape)
@@ -184,16 +178,11 @@ if __name__ == "__main__":
 
     vocab_size = len(w2id)
     net = Autoencoder(
-        vocab_size=vocab_size,
-        embed_size=256,
-        hidden_size=64,
-        num_layers=8,
-        label_size=1,
-        attention_size=72,
-        max_output=max_out_length,
-        pad_id=w2id[pad_token],
-        eos_id=w2id[end_of_sentence_token],
-        device=device,
+        embedding_dim = 33,
+        hidden_dim = 33,
+        num_layers = 2,
+        device = device,
+        vocab_size = vocab_size,
     )
 
     if use_checkpoint:
