@@ -43,14 +43,14 @@ def predict(net, test_loader, device, output_file="./output/supervised_output.tx
     original = torch.cat([x for (x, y) in test_loader])
     print("finished prediction")
 
-    # predicted = predicted.argmax(dim=-1)
-    predicted = F.softmax(predicted)
-    pred = torch.zeros(predicted.size()[:2])
-    for i, sentence in enumerate(predicted):
-        for j, word in enumerate(sentence):
-            pred[i][j] = torch.multinomial(word, 1)
+    predicted = predicted.argmax(dim=-1)
+    #predicted = F.softmax(predicted)
+    #pred = torch.zeros(predicted.size()[:2])
+    #for i, sentence in enumerate(predicted):
+    #    for j, word in enumerate(sentence):
+    #        pred[i][j] = torch.multinomial(word, 1)
     with open(output_file, "w") as f:
-        for i, word_list in enumerate(tensor_to_words(pred, id2w)):
+        for i, word_list in enumerate(tensor_to_words(predicted, id2w)):
             original_sentence = " ".join(tensor_to_words(original, id2w)[i])
             sentence = " ".join(word_list)
             f.write(original_sentence + "  " + sentence + "\n")
