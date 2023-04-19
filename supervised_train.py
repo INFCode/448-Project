@@ -72,7 +72,7 @@ def train(net, total_epoch, device):
 
     # Define the loss function with Classification Cross-Entropy loss and an optimizer with Adam optimizer
     loss_fn = nn.CrossEntropyLoss(ignore_index=w2id[pad_token])
-    optimizer = Adam(net.parameters(), lr=1e-3)
+    optimizer = Adam(net.parameters(), lr=1e-4)
 
     # total_epoch = 2
     loss_traj = []
